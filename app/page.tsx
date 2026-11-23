@@ -1,60 +1,63 @@
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
-import { Plus, MapPin, Trash2 } from 'lucide-react';
-import { redirect } from 'next/navigation';
+import { Plus, MapPin, Calendar, ArrowRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Dashboard() {
+export default async function Index() {
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: projects } = await supabase
+  
+  // Récupérer la liste des projets depuis Supabase
+  const { data: projects, error } = await supabase
     .from('projects')
     .select('*')
     .order('created_at', { ascending: false });
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-slate-900">Mes Chantiers</h1>
-          <Link
-            href="/new" // ou la page de création
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" /> Nouveau
-          </Link>
-        </header>
+    <main className="min-h-screen bg-slate-50 p-6">
+      <header className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Mes Chantiers</h1>
+          <p className="text-slate-500">Gérez vos suivis de travaux</p>
+        </div>
+        <Link 
+          href="/new-project" 
+          className="bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all active:scale-95"
+        >
+          <Plus className="w-6 h-6" />
+        </Link>
+      </header>
 
-        <div className="grid gap-4">
-          {projects?.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.id}`}
-              className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex justify-between items-center group"
+      <div className="grid gap-4">
+        {!projects || projects.length === 0 ? (
+          <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center">
+            <p className="text-slate-400">Aucun chantier trouvé. Créez-en un nouveau !</p>
+          </div>
+        ) : (
+          projects.map((project) => (
+            <Link 
+              key={project.id} 
+              href={`/project/${project.id}`}
+              className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-md transition-all"
             >
-              <div>
-                <h2 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                   {project.name}
                 </h2>
-                <div className="flex items-center gap-1 text-sm text-slate-500 mt-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>{project.address || 'Adresse non renseignée'}</span>
+                <div className="flex items-center gap-3 text-sm text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> {project.location || 'N/A'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> 
+                    {new Date(project.created_at).toLocaleDateString('fr-FR')}
+                  </span>
                 </div>
               </div>
-              <div className="text-blue-600 font-medium text-sm">OUVRIR →</div>
+              <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
             </Link>
-          ))}
-
-          {(!projects || projects.length === 0) && (
-            <div className="text-center py-12 text-slate-400">
-              Aucun chantier. Créez-en un !
-            </div>
-          )}
-        </div>
+          ))
+        )}
       </div>
     </main>
   );
