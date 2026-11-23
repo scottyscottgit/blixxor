@@ -1,0 +1,18 @@
+# CONTEXTE GÉNÉRAL - MODE HAUTE PERFORMANCE (BUDGET 0€)
+
+## PROJET 1 : GLOBAL CURIOSITY (Dark History)
+- Style : Cinématique, Dark Netflix, Réaliste.
+- Personnage : Vlad l'Empaleur (Cohérence visuelle stricte).
+- Workflow : Flux.1 (Images) -> Hedra AI (Lip-sync/A-Roll) -> Kling/Hailuo (Mouvement/B-Roll) -> CapCut.
+- Voix : ElevenLabs (Finn).
+
+## PROJET 2 : BLIXXOR (SaaS BTP)
+- Stack : Next.js 15 (App Router), Tailwind CSS v4, Supabase (PostgreSQL).
+- UI : Dark Mode, Jaune/Gris, haut de gamme, professionnel.
+- Priorité : Efficacité artisan (Auto-complétion, gestion de chantiers simplifiée).
+
+# RÈGLES DE RÉPONSE
+1. Ne demande jamais de rappels sur la stack ou le contexte.
+2. Priorise les solutions gratuites ou "Free Tier".
+3. Pour le code : Tailwind v4 direct (`@import "tailwindcss";`), pas de configuration inutile.
+4. Pour GC : Toujours proposer des prompts optimisés pour le réalisme.
