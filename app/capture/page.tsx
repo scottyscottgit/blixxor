@@ -64,20 +64,27 @@ function CaptureContent() {
   };
 
   // Envoi vers Supabase Storage et BDD
-  const handleUpload = async () => {
+   // Envoi vers Supabase Storage et BDD
+   const handleUpload = async () => {
     if (!file || !projectId) return;
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
       const filePath = `${projectId}/${Date.now()}.${fileExt}`;
 
       // 1. Upload dans le bucket
       const { error: uploadError } = await supabase.storage
         .from('project-media')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          contentType: file.type || 'image/jpeg',
+          upsert: true
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        alert('Erreur Storage: ' + (uploadError.message || JSON.stringify(uploadError)));
+        return;
+      }
 
       // 2. Sauvegarde en table media
       const { error: dbError } = await supabase.from('media').insert({
@@ -86,18 +93,19 @@ function CaptureContent() {
         url: filePath,
       });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        alert('Erreur Base de données: ' + (dbError.message || JSON.stringify(dbError)));
+        return;
+      }
 
       router.push(`/projects/${projectId}`);
       router.refresh();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      alert('Erreur upload : ' + message);
+    } catch (err: any) {
+      alert('Exception: ' + (err?.message || JSON.stringify(err)));
     } finally {
       setUploading(false);
     }
   };
-
   return (
     <main className="min-h-screen bg-slate-900 text-white p-6 flex flex-col items-center justify-center">
       <Link href={`/projects/${projectId}`} className="absolute top-6 left-6 text-white/50 hover:text-white">
