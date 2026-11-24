@@ -81,7 +81,7 @@ function CaptureContent() {
 
       if (dbError) throw dbError;
 
-      router.push(`/project/${projectId}`);
+      router.push(`/projects/${projectId}`);
       router.refresh();
     } catch (error) {
       console.error('Erreur:', error);
@@ -93,7 +93,7 @@ function CaptureContent() {
 
   return (
     <main className="min-h-screen bg-slate-900 text-white p-6 flex flex-col items-center justify-center">
-      <Link href={`/project/${projectId}`} className="absolute top-6 left-6 text-white/50 hover:text-white">
+      <Link href={`/projects/${projectId}`} className="absolute top-6 left-6 text-white/50 hover:text-white">
         <X className="w-8 h-8" />
       </Link>
 

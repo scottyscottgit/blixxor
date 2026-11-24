@@ -46,7 +46,7 @@ export default async function Index() {
           projects.map((project) => (
             <Link 
               key={project.id} 
-              href={`/project/${project.id}`}
+              href={`/projects/${project.id}`}
               className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-[0.99] transition-all"
             >
               <div>
