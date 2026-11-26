@@ -1,7 +1,7 @@
 ﻿import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Building2, Calendar, MapPin, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, MapPin, ShieldCheck, Sparkles, Mic } from "lucide-react";
 import ReportActions from "./ReportActions";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +14,9 @@ export default async function ProjectReportPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: project, error: projectError }, { data: media }, { data: company }] = await Promise.all([
+  const [{ data: project, error: projectError }, { data: rawMedia }, { data: company }] = await Promise.all([
     supabase.from("projects").select("*").eq("id", id).single(),
-    supabase.from("project_media").select("*").eq("project_id", id).order("created_at", { ascending: true }),
+    supabase.from("media").select("*").eq("project_id", id).order("created_at", { ascending: true }),
     supabase.from("company_settings").select("*").eq("id", "default").single(),
   ]);
 
@@ -24,8 +24,23 @@ export default async function ProjectReportPage({
     notFound();
   }
 
-  const photos = media?.filter((m) => m.media_type === "photo") || [];
-  const audios = media?.filter((m) => m.media_type === "audio") || [];
+  const getPublicUrl = (path: string) => {
+    if (!path) return "";
+    if (path.startsWith("http")) return path;
+    const { data } = supabase.storage.from("project-media").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const mediaItems = (rawMedia || []).map((item) => ({
+    ...item,
+    url: getPublicUrl(item.url),
+  }));
+
+  const isAudioItem = (item: any) =>
+    item.type === "audio" || /\.(webm|mp3|wav|m4a|ogg|aac|mp4)$/i.test(item.url);
+
+  const photos = mediaItems.filter((m) => !isAudioItem(m));
+  const audios = mediaItems.filter((m) => isAudioItem(m));
 
   const today = new Date().toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -52,7 +67,7 @@ export default async function ProjectReportPage({
           <div className="flex items-center gap-2">
             <Link
               href="/company"
-              className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
+              className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-blue-600 px-2.5 py-2 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors"
             >
               <Building2 className="w-3.5 h-3.5 text-blue-600" />
               <span className="hidden sm:inline">Modifier en-tête</span>
@@ -73,9 +88,14 @@ export default async function ProjectReportPage({
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="flex items-start gap-4">
               {company?.logo_url ? (
-                <div className="w-24 h-24 rounded-xl border border-slate-200 bg-white flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0 shadow-sm">
+                <div className="w-20 h-20 rounded-xl border border-slate-200 bg-white flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0 shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={company.logo_url} alt={companyName} className="w-full h-full object-contain" loading="eager" />
+                  <img
+                    src={company.logo_url}
+                    alt={companyName}
+                    className="w-full h-full object-contain"
+                    loading="eager"
+                  />
                 </div>
               ) : (
                 <div 
@@ -92,7 +112,9 @@ export default async function ProjectReportPage({
                   <p className="text-xs font-semibold text-slate-700 mt-0.5">Contact : {company.contact_name}</p>
                 )}
                 <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                  {company?.address && <p>{company.address} {company.postal_code} {company.city}</p>}
+                  {(company?.address || company?.postal_code || company?.city) && (
+                    <p>{company?.address} {company?.postal_code} {company?.city}</p>
+                  )}
                   <p>
                     {company?.phone && <span>Tél : {company.phone}</span>}
                     {company?.phone && company?.email && <span> • </span>}
@@ -161,10 +183,11 @@ export default async function ProjectReportPage({
         {audios.length > 0 && (
           <section className="mb-6">
             <h2 
-              className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b"
+              className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b flex items-center gap-2"
               style={{ color: brandColor, borderColor: `${brandColor}40` }}
             >
-              Notes et Dictées Vocales ({audios.length})
+              <Mic className="w-4 h-4" />
+              <span>Notes et Dictées Vocales ({audios.length})</span>
             </h2>
             <div className="space-y-2.5">
               {audios.map((audio: any, idx: number) => (
@@ -173,13 +196,10 @@ export default async function ProjectReportPage({
                     <span className="font-semibold text-slate-600">Note vocale #{idx + 1}</span>
                     <span>{new Date(audio.created_at).toLocaleDateString("fr-FR")}</span>
                   </div>
-                  {audio.transcription ? (
-                    <p className="text-slate-800 leading-relaxed italic font-serif">« {audio.transcription} »</p>
+                  {audio.comment ? (
+                    <p className="text-slate-800 leading-relaxed italic font-serif">« {audio.comment} »</p>
                   ) : (
-                    <p className="text-slate-400 italic">Enregistrement audio sans transcription.</p>
-                  )}
-                  {audio.caption && (
-                    <p className="text-slate-600 mt-1.5 pt-1.5 border-t border-slate-200 font-medium">Observation : {audio.caption}</p>
+                    <p className="text-slate-400 italic">Enregistrement audio sans note écrite.</p>
                   )}
                 </div>
               ))}
@@ -198,22 +218,19 @@ export default async function ProjectReportPage({
           {photos.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-4">Aucune photo enregistrée sur ce chantier.</p>
           ) : (
-            /* Force l'affichage en une seule colonne à l'impression pour éviter les bugs mobiles */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:block print:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2">
               {photos.map((photo: any, index: number) => (
                 <div
                   key={photo.id}
                   className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 break-inside-avoid shadow-sm print:bg-transparent print:border-slate-300"
                 >
-                  {/* Suppression de aspect-video à l'impression et object-contain pour ne pas couper l'image */}
-                  <div className="w-full h-56 rounded-lg overflow-hidden bg-slate-200 mb-2 relative print:h-auto print:bg-transparent">
+                  <div className="w-full aspect-video rounded-lg overflow-hidden bg-slate-200 mb-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={photo.file_url}
-                      alt={photo.caption || `Constat #${index + 1}`}
-                      className="w-full h-full object-cover print:object-contain print:max-h-80 print:h-auto print:mx-auto"
+                      src={photo.url}
+                      alt={photo.comment || `Constat #${index + 1}`}
+                      className="w-full h-full object-cover"
                       loading="eager"
-                      crossOrigin="anonymous"
                     />
                   </div>
                   <div className="space-y-1">
@@ -221,8 +238,8 @@ export default async function ProjectReportPage({
                       <span className="font-bold text-slate-700">Photo #{index + 1}</span>
                       <span>{new Date(photo.created_at).toLocaleDateString("fr-FR")}</span>
                     </div>
-                    {photo.caption ? (
-                      <p className="text-xs text-slate-800 font-medium leading-snug">{photo.caption}</p>
+                    {photo.comment ? (
+                      <p className="text-xs text-slate-800 font-medium leading-snug">{photo.comment}</p>
                     ) : (
                       <p className="text-xs text-slate-400 italic">Sans commentaire particulier.</p>
                     )}
