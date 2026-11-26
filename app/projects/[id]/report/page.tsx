@@ -1,11 +1,12 @@
 ﻿import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Building2, Calendar, MapPin, ShieldCheck, Sparkles } from "lucide-react";
 import ReportActions from "./ReportActions";
-import { Calendar, MapPin, CheckCircle2, MessageSquare, Camera, Mic } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReportPage({
+export default async function ProjectReportPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -13,196 +14,267 @@ export default async function ReportPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .single();
+  // Chargement simultané du chantier, des médias et des paramètres de l'entreprise
+  const [{ data: project, error: projectError }, { data: media }, { data: company }] = await Promise.all([
+    supabase.from("projects").select("*").eq("id", id).single(),
+    supabase.from("project_media").select("*").eq("project_id", id).order("created_at", { ascending: true }),
+    supabase.from("company_settings").select("*").eq("id", "default").single(),
+  ]);
 
-  if (!project) notFound();
+  if (projectError || !project) {
+    notFound();
+  }
 
-  const { data: media } = await supabase
-    .from("media")
-    .select("*")
-    .eq("project_id", id)
-    .order("created_at", { ascending: true });
+  const photos = media?.filter((m) => m.media_type === "photo") || [];
+  const audios = media?.filter((m) => m.media_type === "audio") || [];
 
-  const getPublicUrl = (path: string) => {
-    if (!path) return "";
-    if (path.startsWith("http")) return path;
-    const { data } = supabase.storage.from("project-media").getPublicUrl(path);
-    return data.publicUrl;
-  };
-
-  const currentDate = new Date().toLocaleDateString("fr-FR", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
+  const today = new Date().toLocaleDateString("fr-FR", {
     day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 
-  const photoCount = media?.filter((m) => m.type === "photo").length || 0;
-  const audioCount = media?.filter((m) => m.type === "audio").length || 0;
+  // Valeurs de marque de l'entreprise (ou fallbacks)
+  const brandColor = company?.primary_color || "#2563eb";
+  const companyName = company?.company_name || "Mon Entreprise BTP";
+  const showBadge = company?.show_blixxor_badge ?? true;
 
   return (
-    <div className="min-h-screen bg-slate-100 print:bg-white text-slate-900">
-      {/* Barre d'action invisible à l'impression */}
-      <ReportActions projectId={id} projectName={project.name} />
+    <div className="min-h-screen bg-slate-100 text-slate-900 print:bg-white print:p-0">
+      {/* Barre d'action supérieure (masquée à l'impression) */}
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 print:hidden shadow-sm">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <Link
+            href={`/projects/${id}`}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Retour au chantier</span>
+          </Link>
 
-      {/* Conteneur Feuille A4 */}
-      <div className="max-w-4xl mx-auto p-4 sm:p-8 print:p-0">
-        <div className="bg-white rounded-3xl shadow-lg border border-slate-200 print:shadow-none print:border-none p-6 sm:p-10">
-          
-          {/* En-tête officiel du rapport */}
-          <header className="border-b-2 border-slate-900 pb-6 mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-4 h-4 rounded-full bg-blue-600 inline-block"></span>
-                <span className="text-xs font-black tracking-widest text-slate-500 uppercase">
-                  BLIXXOR • RAPPORT DE VISITE
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-                {project.name}
-              </h1>
-              <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-1 font-medium">
-                <MapPin className="w-4 h-4 text-slate-400" />
-                <span>{project.location || "Localisation non renseignée"}</span>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/company"
+              className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
+              title="Modifier logo et coordonnées"
+            >
+              <Building2 className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">Modifier en-tête</span>
+            </Link>
+            <ReportActions projectName={project.name} />
+          </div>
+        </div>
+      </div>
+
+      {/* Feuille A4 du Rapport */}
+      <main className="max-w-4xl mx-auto my-6 p-8 bg-white rounded-2xl shadow-lg border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-0 print:max-w-none">
+        
+        {/* Bandeau de couleur personnalisé de l'entreprise */}
+        <div 
+          className="h-2.5 w-full rounded-t-lg -mt-8 -mx-8 mb-6 print:m-0 print:mb-6"
+          style={{ backgroundColor: brandColor }}
+        />
+
+        {/* En-tête du Rapport avec Identité Entreprise */}
+        <header className="border-b border-slate-200 pb-6 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            
+            {/* Logo et Raison Sociale */}
+            <div className="flex items-start gap-4">
+              {company?.logo_url ? (
+                <div className="w-24 h-24 rounded-xl border border-slate-200 bg-white flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0 shadow-sm">
+                  <img
+                    src={company.logo_url}
+                    alt={companyName}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div 
+                  className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: brandColor }}
+                >
+                  {companyName.charAt(0)}
+                </div>
+              )}
+
+              <div>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                  {companyName}
+                </h1>
+                {company?.contact_name && (
+                  <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                    Contact : {company.contact_name}
+                  </p>
+                )}
+                <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                  {company?.address && <p>{company.address} {company.postal_code} {company.city}</p>}
+                  <p>
+                    {company?.phone && <span>Tél : {company.phone}</span>}
+                    {company?.phone && company?.email && <span> • </span>}
+                    {company?.email && <span>{company.email}</span>}
+                  </p>
+                  {company?.siret && (
+                    <p className="font-mono text-[11px] text-slate-400">
+                      SIRET : {company.siret} {company.vat_number ? `• TVA : ${company.vat_number}` : ""}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="text-left sm:text-right">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                Date d'édition
+            {/* Titre & Date du Document */}
+            <div className="sm:text-right flex flex-col sm:items-end">
+              <span 
+                className="inline-block px-3 py-1 text-xs font-black uppercase tracking-wider text-white rounded-lg shadow-sm mb-1.5"
+                style={{ backgroundColor: brandColor }}
+              >
+                Rapport de Visite
               </span>
-              <span className="text-sm font-bold text-slate-800 capitalize">
-                {currentDate}
-              </span>
-            </div>
-          </header>
-
-          {/* Synthèse rapide */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                <Camera className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Photos</p>
-                <p className="text-lg font-bold text-slate-900">{photoCount}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                <Mic className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Notes vocales</p>
-                <p className="text-lg font-bold text-slate-900">{audioCount}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Statut</p>
-                <p className="text-xs sm:text-sm font-bold text-emerald-700">En cours</p>
-              </div>
+              <p className="text-xs font-medium text-slate-500">Date d'émission : {today}</p>
+              <p className="text-xs font-semibold text-slate-700 mt-1">Chantier : {project.name}</p>
             </div>
           </div>
 
-          {/* Liste chronologique des observations */}
-          <section className="space-y-6">
-            <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
-              <MessageSquare className="w-4 h-4 text-blue-600" />
-              Relevé des observations terrain
+          {/* Bandeau Assurance Décennale si renseignée */}
+          {(company?.insurance_name || company?.insurance_policy) && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-slate-500">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>
+                <strong>Garantie Décennale / RCP :</strong> {company.insurance_name || "Assurance BTP"}
+                {company.insurance_policy ? ` (Police n° ${company.insurance_policy})` : ""}
+                {company.insurance_coverage ? ` - Zone : ${company.insurance_coverage}` : ""}
+              </span>
+            </div>
+          )}
+        </header>
+
+        {/* Détails du Chantier */}
+        <section className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <span className="text-slate-500 font-medium block">Nom du chantier :</span>
+            <span className="font-bold text-slate-800 text-sm">{project.name}</span>
+          </div>
+          <div>
+            <span className="text-slate-500 font-medium block">Localisation :</span>
+            <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              {project.location || "Non précisée"}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-500 font-medium block">Date de création :</span>
+            <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              {new Date(project.created_at).toLocaleDateString("fr-FR")}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-500 font-medium block">État du chantier :</span>
+            <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-0.5 border border-emerald-200">
+              En cours
+            </span>
+          </div>
+        </section>
+
+        {/* Section Notes Vocales & Transcriptions */}
+        {audios.length > 0 && (
+          <section className="mb-6">
+            <h2 
+              className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b"
+              style={{ color: brandColor, borderColor: `${brandColor}40` }}
+            >
+              Notes et Dictées Vocales ({audios.length})
             </h2>
-
-            {!media || media.length === 0 ? (
-              <p className="text-sm text-slate-400 py-8 text-center italic">
-                Aucune observation enregistrée sur ce chantier.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {media.map((item, index) => {
-                  const isAudio = item.type === "audio";
-                  const itemDate = new Date(item.created_at).toLocaleDateString("fr-FR", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="border border-slate-200 rounded-2xl overflow-hidden bg-white break-inside-avoid shadow-xs flex flex-col"
-                    >
-                      {/* Image ou Carte Audio */}
-                      {isAudio ? (
-                        <div className="p-4 bg-amber-50/70 border-b border-amber-100 flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
-                            <Mic className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold text-amber-900 block">
-                              Note vocale #{index + 1}
-                            </span>
-                            <span className="text-[11px] text-amber-700">
-                              Transcrit par IA Blixxor
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="aspect-video bg-slate-100 border-b border-slate-100 overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={getPublicUrl(item.url)}
-                            alt="Constat chantier"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-
-                      {/* Texte et horodatage */}
-                      <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                        <div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                            Observation
-                          </span>
-                          <p className="text-sm text-slate-800 font-medium leading-relaxed">
-                            {item.comment ? (
-                              item.comment
-                            ) : (
-                              <span className="text-slate-400 italic">
-                                Constat photographique sans observation écrite.
-                              </span>
-                            )}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium pt-2 border-t border-slate-100">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Relevé le {itemDate}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <div className="space-y-2.5">
+              {audios.map((audio: any, idx: number) => (
+                <div key={audio.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <span className="font-semibold text-slate-600">Note vocale #{idx + 1}</span>
+                    <span>{new Date(audio.created_at).toLocaleDateString("fr-FR")}</span>
+                  </div>
+                  {audio.transcription ? (
+                    <p className="text-slate-800 leading-relaxed italic font-serif">
+                      « {audio.transcription} »
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 italic">Enregistrement audio sans transcription.</p>
+                  )}
+                  {audio.caption && (
+                    <p className="text-slate-600 mt-1.5 pt-1.5 border-t border-slate-200 font-medium">
+                      Observation : {audio.caption}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
+        )}
 
-          {/* Pied de page du rapport */}
-          <footer className="mt-12 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
-            <p>Document généré automatiquement via l'application Blixxor.</p>
-            <p className="font-semibold text-slate-500">Page 1 / 1 • Blixxor BTP SaaS</p>
-          </footer>
-        </div>
-      </div>
+        {/* Section Photos & Constats */}
+        <section className="mb-8">
+          <h2 
+            className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b"
+            style={{ color: brandColor, borderColor: `${brandColor}40` }}
+          >
+            Photos & Constats de Chantier ({photos.length})
+          </h2>
+
+          {photos.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-4">Aucune photo enregistrée sur ce chantier.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {photos.map((photo: any, index: number) => (
+                <div
+                  key={photo.id}
+                  className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 break-inside-avoid shadow-sm"
+                >
+                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-200 mb-2">
+                    <img
+                      src={photo.file_url}
+                      alt={photo.caption || `Constat #${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span className="font-bold text-slate-700">Photo #{index + 1}</span>
+                      <span>{new Date(photo.created_at).toLocaleDateString("fr-FR")}</span>
+                    </div>
+                    {photo.caption ? (
+                      <p className="text-xs text-slate-800 font-medium leading-snug">
+                        {photo.caption}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">Sans commentaire particulier.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Pied de page du Document */}
+        <footer className="mt-10 pt-4 border-t border-slate-200 text-xs text-slate-400 space-y-2">
+          {company?.footer_notes && (
+            <p className="text-center text-slate-600 font-medium italic text-[11px]">
+              {company.footer_notes}
+            </p>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px]">
+            <p>Rapport généré le {today} pour le compte du client.</p>
+            {showBadge && (
+              <p className="flex items-center gap-1 font-semibold text-slate-600">
+                <Sparkles className="w-3 h-3 text-blue-600" />
+                Propulsé par <span className="text-blue-600 font-bold">Blixxor</span>
+              </p>
+            )}
+          </div>
+        </footer>
+
+      </main>
     </div>
   );
 }
