@@ -14,7 +14,6 @@ export default async function ProjectReportPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // Chargement simultané du chantier, des médias et des paramètres de l'entreprise
   const [{ data: project, error: projectError }, { data: media }, { data: company }] = await Promise.all([
     supabase.from("projects").select("*").eq("id", id).single(),
     supabase.from("project_media").select("*").eq("project_id", id).order("created_at", { ascending: true }),
@@ -34,14 +33,12 @@ export default async function ProjectReportPage({
     year: "numeric",
   });
 
-  // Valeurs de marque de l'entreprise (ou fallbacks)
   const brandColor = company?.primary_color || "#2563eb";
   const companyName = company?.company_name || "Mon Entreprise BTP";
   const showBadge = company?.show_blixxor_badge ?? true;
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 print:bg-white print:p-0">
-      {/* Barre d'action supérieure (masquée à l'impression) */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 print:hidden shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <Link
@@ -56,7 +53,6 @@ export default async function ProjectReportPage({
             <Link
               href="/company"
               className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-blue-600 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
-              title="Modifier logo et coordonnées"
             >
               <Building2 className="w-3.5 h-3.5 text-blue-600" />
               <span className="hidden sm:inline">Modifier en-tête</span>
@@ -66,28 +62,20 @@ export default async function ProjectReportPage({
         </div>
       </div>
 
-      {/* Feuille A4 du Rapport */}
       <main className="max-w-4xl mx-auto my-6 p-8 bg-white rounded-2xl shadow-lg border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-0 print:max-w-none">
         
-        {/* Bandeau de couleur personnalisé de l'entreprise */}
         <div 
           className="h-2.5 w-full rounded-t-lg -mt-8 -mx-8 mb-6 print:m-0 print:mb-6"
           style={{ backgroundColor: brandColor }}
         />
 
-        {/* En-tête du Rapport avec Identité Entreprise */}
         <header className="border-b border-slate-200 pb-6 mb-6">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-            
-            {/* Logo et Raison Sociale */}
             <div className="flex items-start gap-4">
               {company?.logo_url ? (
                 <div className="w-24 h-24 rounded-xl border border-slate-200 bg-white flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0 shadow-sm">
-                  <img
-                    src={company.logo_url}
-                    alt={companyName}
-                    className="w-full h-full object-contain"
-                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={company.logo_url} alt={companyName} className="w-full h-full object-contain" loading="eager" />
                 </div>
               ) : (
                 <div 
@@ -99,13 +87,9 @@ export default async function ProjectReportPage({
               )}
 
               <div>
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                  {companyName}
-                </h1>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">{companyName}</h1>
                 {company?.contact_name && (
-                  <p className="text-xs font-semibold text-slate-700 mt-0.5">
-                    Contact : {company.contact_name}
-                  </p>
+                  <p className="text-xs font-semibold text-slate-700 mt-0.5">Contact : {company.contact_name}</p>
                 )}
                 <div className="text-xs text-slate-500 mt-1 space-y-0.5">
                   {company?.address && <p>{company.address} {company.postal_code} {company.city}</p>}
@@ -123,7 +107,6 @@ export default async function ProjectReportPage({
               </div>
             </div>
 
-            {/* Titre & Date du Document */}
             <div className="sm:text-right flex flex-col sm:items-end">
               <span 
                 className="inline-block px-3 py-1 text-xs font-black uppercase tracking-wider text-white rounded-lg shadow-sm mb-1.5"
@@ -136,7 +119,6 @@ export default async function ProjectReportPage({
             </div>
           </div>
 
-          {/* Bandeau Assurance Décennale si renseignée */}
           {(company?.insurance_name || company?.insurance_policy) && (
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-slate-500">
               <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -149,8 +131,7 @@ export default async function ProjectReportPage({
           )}
         </header>
 
-        {/* Détails du Chantier */}
-        <section className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <section className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs print:bg-transparent print:border-slate-300">
           <div>
             <span className="text-slate-500 font-medium block">Nom du chantier :</span>
             <span className="font-bold text-slate-800 text-sm">{project.name}</span>
@@ -177,7 +158,6 @@ export default async function ProjectReportPage({
           </div>
         </section>
 
-        {/* Section Notes Vocales & Transcriptions */}
         {audios.length > 0 && (
           <section className="mb-6">
             <h2 
@@ -188,22 +168,18 @@ export default async function ProjectReportPage({
             </h2>
             <div className="space-y-2.5">
               {audios.map((audio: any, idx: number) => (
-                <div key={audio.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                <div key={audio.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs break-inside-avoid print:bg-transparent">
                   <div className="flex items-center justify-between text-slate-400 mb-1">
                     <span className="font-semibold text-slate-600">Note vocale #{idx + 1}</span>
                     <span>{new Date(audio.created_at).toLocaleDateString("fr-FR")}</span>
                   </div>
                   {audio.transcription ? (
-                    <p className="text-slate-800 leading-relaxed italic font-serif">
-                      « {audio.transcription} »
-                    </p>
+                    <p className="text-slate-800 leading-relaxed italic font-serif">« {audio.transcription} »</p>
                   ) : (
                     <p className="text-slate-400 italic">Enregistrement audio sans transcription.</p>
                   )}
                   {audio.caption && (
-                    <p className="text-slate-600 mt-1.5 pt-1.5 border-t border-slate-200 font-medium">
-                      Observation : {audio.caption}
-                    </p>
+                    <p className="text-slate-600 mt-1.5 pt-1.5 border-t border-slate-200 font-medium">Observation : {audio.caption}</p>
                   )}
                 </div>
               ))}
@@ -211,7 +187,6 @@ export default async function ProjectReportPage({
           </section>
         )}
 
-        {/* Section Photos & Constats */}
         <section className="mb-8">
           <h2 
             className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b"
@@ -223,17 +198,22 @@ export default async function ProjectReportPage({
           {photos.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-4">Aucune photo enregistrée sur ce chantier.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            /* Force l'affichage en une seule colonne à l'impression pour éviter les bugs mobiles */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:block print:space-y-6">
               {photos.map((photo: any, index: number) => (
                 <div
                   key={photo.id}
-                  className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 break-inside-avoid shadow-sm"
+                  className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 break-inside-avoid shadow-sm print:bg-transparent print:border-slate-300"
                 >
-                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-200 mb-2">
+                  {/* Suppression de aspect-video à l'impression et object-contain pour ne pas couper l'image */}
+                  <div className="w-full h-56 rounded-lg overflow-hidden bg-slate-200 mb-2 relative print:h-auto print:bg-transparent">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={photo.file_url}
                       alt={photo.caption || `Constat #${index + 1}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover print:object-contain print:max-h-80 print:h-auto print:mx-auto"
+                      loading="eager"
+                      crossOrigin="anonymous"
                     />
                   </div>
                   <div className="space-y-1">
@@ -242,9 +222,7 @@ export default async function ProjectReportPage({
                       <span>{new Date(photo.created_at).toLocaleDateString("fr-FR")}</span>
                     </div>
                     {photo.caption ? (
-                      <p className="text-xs text-slate-800 font-medium leading-snug">
-                        {photo.caption}
-                      </p>
+                      <p className="text-xs text-slate-800 font-medium leading-snug">{photo.caption}</p>
                     ) : (
                       <p className="text-xs text-slate-400 italic">Sans commentaire particulier.</p>
                     )}
@@ -255,12 +233,9 @@ export default async function ProjectReportPage({
           )}
         </section>
 
-        {/* Pied de page du Document */}
         <footer className="mt-10 pt-4 border-t border-slate-200 text-xs text-slate-400 space-y-2">
           {company?.footer_notes && (
-            <p className="text-center text-slate-600 font-medium italic text-[11px]">
-              {company.footer_notes}
-            </p>
+            <p className="text-center text-slate-600 font-medium italic text-[11px]">{company.footer_notes}</p>
           )}
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px]">
