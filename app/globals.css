@@ -10,3 +10,4 @@ body {
   color: white;
   background: #0f172a; /* Un beau bleu nuit sombre */
 }
+@media print { .no-print { display: none !important; } }

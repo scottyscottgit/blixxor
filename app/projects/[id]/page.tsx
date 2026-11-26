@@ -1,7 +1,7 @@
 ﻿import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Camera, Mic, FileText } from "lucide-react";
+import { ArrowLeft, Camera, Mic, FileText, FileDown } from "lucide-react";
 import MediaCard from "./MediaCard";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +55,8 @@ export default async function ProjectPage({
         <p className="text-slate-500 text-sm mt-0.5">{project.location || "Lieu non défini"}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-8">
+      {/* BOUTONS D'ACTION RAPIDE */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
         <Link
           href={`/capture?projectId=${id}&mode=photo`}
           className="bg-blue-600 active:bg-blue-700 p-5 rounded-2xl text-white flex flex-col items-center justify-center gap-2 shadow-md shadow-blue-200 active:scale-95 transition-all"
@@ -72,6 +73,16 @@ export default async function ProjectPage({
         </Link>
       </div>
 
+      {/* BOUTON MAGIQUE RAPPORT PDF */}
+      <Link
+        href={`/projects/${id}/report`}
+        className="w-full mb-8 py-3.5 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 shadow-md shadow-slate-300 transition-all cursor-pointer"
+      >
+        <FileDown className="w-4 h-4 text-blue-400" />
+        <span>GÉNÉRER LE RAPPORT DE VISITE PDF</span>
+      </Link>
+
+      {/* LISTE DES MÉDIAS */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800">Médias & Observations</h2>
