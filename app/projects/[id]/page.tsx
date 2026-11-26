@@ -1,4 +1,5 @@
-﻿import { createClient } from "@/utils/supabase/server";
+﻿import TechnicalAnalysis from '@/components/TechnicalAnalysis';
+import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Camera, Mic, FileText, FileDown } from "lucide-react";
@@ -81,6 +82,8 @@ export default async function ProjectPage({
         <FileDown className="w-4 h-4 text-blue-400" />
         <span>GÉNÉRER LE RAPPORT DE VISITE PDF</span>
       </Link>
+
+        <div className="my-6"><TechnicalAnalysis projectId={id} /></div>
 
       {/* LISTE DES MÉDIAS */}
       <section>
