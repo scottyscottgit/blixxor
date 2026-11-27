@@ -1,10 +1,8 @@
-﻿import { createClient } from "@/utils/supabase/server";
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Building2, Calendar, MapPin, ShieldCheck, Sparkles, Mic } from "lucide-react";
-import ReportActions from "./ReportActions";
-
-export const dynamic = "force-dynamic";
+﻿import PrintButton from '@/components/PrintButton';
+import { createClient } from '@/utils/supabase/server';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, Printer, MapPin, Calendar, HardHat, FileText, Sparkles, AlertTriangle, Lightbulb, ClipboardList } from 'lucide-react';
 
 export default async function ProjectReportPage({
   params,
@@ -14,258 +12,253 @@ export default async function ProjectReportPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: project, error: projectError }, { data: rawMedia }, { data: company }] = await Promise.all([
-    supabase.from("projects").select("*").eq("id", id).single(),
-    supabase.from("media").select("*").eq("project_id", id).order("created_at", { ascending: true }),
-    supabase.from("company_settings").select("*").eq("id", "default").single(),
-  ]);
+  // 1. Récupération du chantier
+  const { data: project } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', id)
+    .single();
 
-  if (projectError || !project) {
+  if (!project) {
     notFound();
   }
 
-  const getPublicUrl = (path: string) => {
-    if (!path) return "";
-    if (path.startsWith("http")) return path;
-    const { data } = supabase.storage.from("project-media").getPublicUrl(path);
-    return data.publicUrl;
-  };
+  // 2. Récupération des médias du chantier
+  const { data: mediaItems } = await supabase
+    .from('media')
+    .select('*')
+    .eq('project_id', id)
+    .order('created_at', { ascending: true });
 
-  const mediaItems = (rawMedia || []).map((item) => ({
-    ...item,
-    url: getPublicUrl(item.url),
-  }));
+  // 3. Récupération des paramètres entreprise
+  const { data: company } = await supabase
+    .from('company_settings')
+    .select('*')
+    .eq('id', 'default')
+    .maybeSingle();
 
-  const isAudioItem = (item: any) =>
-    item.type === "audio" || /\.(webm|mp3|wav|m4a|ogg|aac|mp4)$/i.test(item.url);
+  // 4. Récupération de l'analyse technique IA
+  const { data: analysis } = await supabase
+    .from('project_analyses')
+    .select('*')
+    .eq('project_id', id)
+    .maybeSingle();
 
-  const photos = mediaItems.filter((m) => !isAudioItem(m));
-  const audios = mediaItems.filter((m) => isAudioItem(m));
-
-  const today = new Date().toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-  const brandColor = company?.primary_color || "#2563eb";
-  const companyName = company?.company_name || "Mon Entreprise BTP";
-  const showBadge = company?.show_blixxor_badge ?? true;
+  const brandColor = company?.primary_color || '#2563eb';
+  const companyName = company?.company_name || 'Mon Entreprise BTP';
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 print:bg-white print:p-0">
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 print:hidden shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+    <div className="min-h-screen bg-slate-100 print:bg-white text-slate-900 pb-20 print:pb-0">
+      {/* Barre d'action fixe en haut (masquée à l'impression) */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 print:hidden shadow-sm">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link
             href={`/projects/${id}`}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Retour au chantier</span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/company"
-              className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-blue-600 px-2.5 py-2 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors"
-            >
-              <Building2 className="w-3.5 h-3.5 text-blue-600" />
-              <span className="hidden sm:inline">Modifier en-tête</span>
-            </Link>
-            <ReportActions projectName={project.name} />
+          <PrintButton />
+        </div>
+      </header>
+
+      {/* Script d'impression côté client */}
+      
+
+      {/* Feuille A4 du Rapport */}
+      <main className="max-w-4xl mx-auto my-6 print:my-0 p-8 sm:p-12 bg-white rounded-3xl print:rounded-none shadow-xl print:shadow-none border border-slate-200/80 print:border-none space-y-8">
+        
+        {/* EN-TÊTE DU DOCUMENT */}
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 pb-6" style={{ borderColor: brandColor }}>
+          <div className="space-y-1.5">
+            {company?.logo_url ? (
+              <img src={company.logo_url} alt="Logo" className="h-14 w-auto object-contain mb-2" />
+            ) : (
+              <div className="flex items-center gap-2 text-xl font-black tracking-tight" style={{ color: brandColor }}>
+                <HardHat className="w-7 h-7" />
+                <span>{companyName}</span>
+              </div>
+            )}
+            <div className="text-xs text-slate-500 space-y-0.5">
+              {company?.address && <p>{company.address}</p>}
+              <p>
+                {company?.phone && <span>Tél : {company.phone} </span>}
+                {company?.email && <span>• Email : {company.email}</span>}
+              </p>
+              {company?.siret && <p>SIRET : {company.siret}</p>}
+              {company?.insurance_name && (
+                <p className="font-semibold text-slate-700">
+                  Garantie Décennale / RCP : {company.insurance_name} (Police N° {company.insurance_policy || 'En cours'})
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="text-right sm:text-right w-full sm:w-auto bg-slate-50 print:bg-transparent p-4 rounded-2xl border border-slate-100 print:border-none">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Document Officiel</span>
+            <h2 className="text-lg font-black text-slate-900 mt-0.5">RAPPORT DE VISITE TECHNIQUE</h2>
+            <p className="text-xs text-slate-500 mt-1">Date d'édition : {new Date().toLocaleDateString('fr-FR')}</p>
           </div>
         </div>
-      </div>
 
-      <main className="max-w-4xl mx-auto my-6 p-8 bg-white rounded-2xl shadow-lg border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-0 print:max-w-none">
-        
-        <div 
-          className="h-2.5 w-full rounded-t-lg -mt-8 -mx-8 mb-6 print:m-0 print:mb-6"
-          style={{ backgroundColor: brandColor }}
-        />
+        {/* FICHE CHANTIER */}
+        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2">
+          <h3 className="text-base font-bold text-slate-900">{project.name || project.title}</h3>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            {project.address && (
+              <span className="flex items-center gap-1 font-medium">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                {project.address}
+              </span>
+            )}
+            {project.location && !project.address && (
+              <span className="flex items-center gap-1 font-medium">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                {project.location}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              Visite effectuée le : {new Date(project.created_at).toLocaleDateString('fr-FR')}
+            </span>
+          </div>
+        </div>
 
-        <header className="border-b border-slate-200 pb-6 mb-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-            <div className="flex items-start gap-4">
-              {company?.logo_url ? (
-                <div className="w-20 h-20 rounded-xl border border-slate-200 bg-white flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0 shadow-sm">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={company.logo_url}
-                    alt={companyName}
-                    className="w-full h-full object-contain"
-                    loading="eager"
-                  />
+        {/* SECTION NIVEAU 2 : ANALYSE TECHNIQUE IA & LOTS */}
+        {analysis && (
+          <div className="space-y-6 pt-2">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+              <Sparkles className="w-5 h-5" style={{ color: brandColor }} />
+              <h3 className="font-bold text-base text-slate-900 uppercase tracking-wide">
+                Pré-Étude Technique & Découpage des Travaux
+              </h3>
+            </div>
+
+            {/* Résumé global */}
+            {analysis.summary && (
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed">
+                <span className="font-bold block text-xs uppercase text-slate-500 mb-1">Synthèse du projet :</span>
+                {analysis.summary}
+              </div>
+            )}
+
+            {/* Tableau des Lots et Tâches */}
+            {analysis.lots && analysis.lots.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-slate-600">
+                  <ClipboardList className="w-4 h-4" /> Répartition par Corps d'État (Lots)
+                </h4>
+                <div className="space-y-3">
+                  {analysis.lots.map((lot: any, idx: number) => (
+                    <div key={idx} className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-900 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider flex justify-between items-center">
+                        <span>Lot {idx + 1} : {lot.name}</span>
+                        <span className="text-[10px] font-normal opacity-75">{lot.tasks?.length || 0} intervention(s)</span>
+                      </div>
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
+                          <tr>
+                            <th className="px-4 py-2 font-semibold">Désignation des travaux</th>
+                            <th className="px-4 py-2 text-right font-semibold w-28">Quantité estimée</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {lot.tasks?.map((task: any, tIdx: number) => (
+                            <tr key={tIdx} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 text-slate-700">{task.description}</td>
+                              <td className="px-4 py-2.5 text-right font-bold text-slate-900 whitespace-nowrap">
+                                {task.quantity} {task.unit}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div 
-                  className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: brandColor }}
-                >
-                  {companyName.charAt(0)}
+              </div>
+            )}
+
+            {/* Alertes & Recommandations côte à côte */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {analysis.missing_info && analysis.missing_info.length > 0 && (
+                <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-2">
+                  <h4 className="flex items-center gap-1.5 font-bold text-xs text-amber-900 uppercase tracking-wide">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" /> Points à préciser / Métrés manquants
+                  </h4>
+                  <ul className="list-disc pl-4 space-y-1 text-xs text-amber-950">
+                    {analysis.missing_info.map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
-              <div>
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">{companyName}</h1>
-                {company?.contact_name && (
-                  <p className="text-xs font-semibold text-slate-700 mt-0.5">Contact : {company.contact_name}</p>
-                )}
-                <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                  {(company?.address || company?.postal_code || company?.city) && (
-                    <p>{company?.address} {company?.postal_code} {company?.city}</p>
-                  )}
-                  <p>
-                    {company?.phone && <span>Tél : {company.phone}</span>}
-                    {company?.phone && company?.email && <span> • </span>}
-                    {company?.email && <span>{company.email}</span>}
-                  </p>
-                  {company?.siret && (
-                    <p className="font-mono text-[11px] text-slate-400">
-                      SIRET : {company.siret} {company.vat_number ? `• TVA : ${company.vat_number}` : ""}
-                    </p>
-                  )}
+              {analysis.recommendations && analysis.recommendations.length > 0 && (
+                <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2">
+                  <h4 className="flex items-center gap-1.5 font-bold text-xs text-blue-900 uppercase tracking-wide">
+                    <Lightbulb className="w-4 h-4 text-blue-600" /> Préconisations techniques (DTU / Terrain)
+                  </h4>
+                  <ul className="list-disc pl-4 space-y-1 text-xs text-blue-950">
+                    {analysis.recommendations.map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            </div>
-
-            <div className="sm:text-right flex flex-col sm:items-end">
-              <span 
-                className="inline-block px-3 py-1 text-xs font-black uppercase tracking-wider text-white rounded-lg shadow-sm mb-1.5"
-                style={{ backgroundColor: brandColor }}
-              >
-                Rapport de Visite
-              </span>
-              <p className="text-xs font-medium text-slate-500">Date d'émission : {today}</p>
-              <p className="text-xs font-semibold text-slate-700 mt-1">Chantier : {project.name}</p>
+              )}
             </div>
           </div>
-
-          {(company?.insurance_name || company?.insurance_policy) && (
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-slate-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span>
-                <strong>Garantie Décennale / RCP :</strong> {company.insurance_name || "Assurance BTP"}
-                {company.insurance_policy ? ` (Police n° ${company.insurance_policy})` : ""}
-                {company.insurance_coverage ? ` - Zone : ${company.insurance_coverage}` : ""}
-              </span>
-            </div>
-          )}
-        </header>
-
-        <section className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs print:bg-transparent print:border-slate-300">
-          <div>
-            <span className="text-slate-500 font-medium block">Nom du chantier :</span>
-            <span className="font-bold text-slate-800 text-sm">{project.name}</span>
-          </div>
-          <div>
-            <span className="text-slate-500 font-medium block">Localisation :</span>
-            <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              {project.location || "Non précisée"}
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-500 font-medium block">Date de création :</span>
-            <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              {new Date(project.created_at).toLocaleDateString("fr-FR")}
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-500 font-medium block">État du chantier :</span>
-            <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-0.5 border border-emerald-200">
-              En cours
-            </span>
-          </div>
-        </section>
-
-        {audios.length > 0 && (
-          <section className="mb-6">
-            <h2 
-              className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b flex items-center gap-2"
-              style={{ color: brandColor, borderColor: `${brandColor}40` }}
-            >
-              <Mic className="w-4 h-4" />
-              <span>Notes et Dictées Vocales ({audios.length})</span>
-            </h2>
-            <div className="space-y-2.5">
-              {audios.map((audio: any, idx: number) => (
-                <div key={audio.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs break-inside-avoid print:bg-transparent">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="font-semibold text-slate-600">Note vocale #{idx + 1}</span>
-                    <span>{new Date(audio.created_at).toLocaleDateString("fr-FR")}</span>
-                  </div>
-                  {audio.comment ? (
-                    <p className="text-slate-800 leading-relaxed italic font-serif">« {audio.comment} »</p>
-                  ) : (
-                    <p className="text-slate-400 italic">Enregistrement audio sans note écrite.</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
         )}
 
-        <section className="mb-8">
-          <h2 
-            className="text-sm font-bold uppercase tracking-wider mb-3 pb-1 border-b"
-            style={{ color: brandColor, borderColor: `${brandColor}40` }}
-          >
-            Photos & Constats de Chantier ({photos.length})
-          </h2>
+        {/* SECTION PHOTOS ET OBSERVATIONS */}
+        <div className="space-y-4 pt-4 border-t border-slate-200">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-slate-700" />
+            <h3 className="font-bold text-base text-slate-900 uppercase tracking-wide">
+              Constats Visuels & Notes de Visite ({mediaItems?.length || 0})
+            </h3>
+          </div>
 
-          {photos.length === 0 ? (
-            <p className="text-xs text-slate-400 italic py-4">Aucune photo enregistrée sur ce chantier.</p>
+          {(!mediaItems || mediaItems.length === 0) ? (
+            <p className="text-xs text-slate-400 italic">Aucun média enregistré sur ce chantier.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2">
-              {photos.map((photo: any, index: number) => (
-                <div
-                  key={photo.id}
-                  className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 break-inside-avoid shadow-sm print:bg-transparent print:border-slate-300"
-                >
-                  <div className="w-full aspect-video rounded-lg overflow-hidden bg-slate-200 mb-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.url}
-                      alt={photo.comment || `Constat #${index + 1}`}
-                      className="w-full h-full object-cover"
-                      loading="eager"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="font-bold text-slate-700">Photo #{index + 1}</span>
-                      <span>{new Date(photo.created_at).toLocaleDateString("fr-FR")}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {mediaItems.map((item: any, idx: number) => (
+                <div key={item.id || idx} className="p-3 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
+                  {item.type === 'photo' && item.url && (
+                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-200 border border-slate-200">
+                      <img src={item.url} alt="Constat chantier" className="w-full h-full object-cover" />
                     </div>
-                    {photo.comment ? (
-                      <p className="text-xs text-slate-800 font-medium leading-snug">{photo.comment}</p>
-                    ) : (
-                      <p className="text-xs text-slate-400 italic">Sans commentaire particulier.</p>
-                    )}
-                  </div>
+                  )}
+
+                  {item.type === 'audio' && (
+                    <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-2 text-xs font-semibold text-blue-800">
+                      <span>🎤 Note Vocale de Visite</span>
+                    </div>
+                  )}
+
+                  {item.comment && (
+                    <p className="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-100 leading-relaxed">
+                      {item.comment}
+                    </p>
+                  )}
+
+                  <span className="text-[10px] text-slate-400 block text-right">
+                    {new Date(item.created_at).toLocaleDateString('fr-FR')} {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
               ))}
             </div>
           )}
-        </section>
+        </div>
 
-        <footer className="mt-10 pt-4 border-t border-slate-200 text-xs text-slate-400 space-y-2">
-          {company?.footer_notes && (
-            <p className="text-center text-slate-600 font-medium italic text-[11px]">{company.footer_notes}</p>
-          )}
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px]">
-            <p>Rapport généré le {today} pour le compte du client.</p>
-            {showBadge && (
-              <p className="flex items-center gap-1 font-semibold text-slate-600">
-                <Sparkles className="w-3 h-3 text-blue-600" />
-                Propulsé par <span className="text-blue-600 font-bold">Blixxor</span>
-              </p>
-            )}
-          </div>
-        </footer>
-
+        {/* PIED DE PAGE DU RAPPORT */}
+        <div className="pt-8 border-t border-slate-200 text-center text-[10px] text-slate-400 space-y-1">
+          <p>Document généré par {companyName} via Blixxor — Application de suivi et pré-chiffrage technique.</p>
+          <p>Ce compte-rendu constitue un diagnostic préliminaire de visite avant validation du devis définitif.</p>
+        </div>
       </main>
     </div>
   );
